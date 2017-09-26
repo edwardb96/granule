@@ -45,6 +45,7 @@ import System.Exit (die)
     '_'   { TokenUnderscore _ }
     ';'   { TokenSemicolon _ }
     '.'   { TokenPeriod _ }
+    '/'   { TokenFSlash _ }
 
 
 %right in
@@ -63,15 +64,47 @@ NL : nl NL {}
    | nl    {}
 
 Def :: { Def }
-Def : Sig nl Binding
-  { if (fst3 $1 == fst3 $3)
-    then Def (thd3 $1, getEnd $ snd3 $3) (fst3 $3) (snd3 $3) (thd3 $3) (snd3 $1)
-    else error $ "Signature for "
-	            ++ fst3 $3
-	            ++ " does not match the signature head" }
+Def : Signatures nl Binding
+ { let (name, (l, u), signatures) = $1
+   in let actualSignature = filter fst signatures
+   in let unSignatures    = filter (not . fst) signatures
+   in
+     case actualSignature of
+       [sig] | name == fst3 $1 ->
+           Def (l, getEnd $ snd3 $3)
+               name
+               (snd3 $3)
+               (thd3 $3)
+               sig
+               unSignatures
 
-Sig ::  { (String, TypeScheme, Pos) }
-Sig : VAR ':' TypeScheme           { (symString $1, $3, getPos $1) }
+       [_] -> "(" ++ show l ++ ":" ++ show u ++ "): "
+            ++ "Missing signature for " ++ name
+
+       _ -> "(" ++ show l ++ ":" ++ show u ++ "): "
+            ++ "Duplicate signatures for " ++ name }
+
+Signatures :: { ((String, Span), [(Bool, TypeScheme)]) }
+Signatures :
+   VAR Signature Signatures
+     { let ((var, (_, u)), sigs) = $3
+       in let (_, sig)              = $2
+       in let var'                  = $1
+       in 
+          if var == var'
+  	  then (var, ($1, u), (sig : sigs))
+          else error $ "(" ++ show l ++ ":" ++ show u ++ "): "
+	          ++ "Signature for " ++ var
+       	          ++ " has conflicting name " ++ $1  }
+
+  | VAR Signature
+      { let (pos, sig) = $2
+ 	in  (($1, pos), [sig]) } 
+
+Signature :: { (Span, (Bool, TypeScheme)) }
+Signature :
+   ':' TypeScheme  { ((getPos $1, getEnd $2), (True, $2)) }
+ | '/' TypeScheme  { ((getPos $1, getEnd $2), (False, $2)) }
 
 Binding :: { (String, Expr, [Pattern]) }
 Binding : VAR '=' Expr             { (symString $1, $3, []) }

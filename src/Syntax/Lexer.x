@@ -60,6 +60,7 @@ tokens :-
   @sym				{ \p s -> TokenSym p s }
   \_                            { \p _ -> TokenUnderscore p }
   \|                            { \p s -> TokenPipe p }
+  \/                            { \p s -> TokenFSlash p }
 
 {
 
@@ -95,6 +96,7 @@ data Token = TokenLet  AlexPosn
 	   | TokenPipe     AlexPosn
 	   | TokenUnderscore AlexPosn
 	   | TokenSemicolon  AlexPosn
+	   | TokenFSlash AlexPosn
            deriving (Eq, Show, Generic)
 
 symString :: Token -> String

@@ -21,8 +21,8 @@ import Control.Monad.State.Strict
 -- information. This will likely change in the future with better
 -- bidirectional inference.
 desugar :: Def -> Def
-desugar (Def s var expr pats tys@(Forall _ _ ty)) =
-  Def s var (evalState (desguarPats expr pats ty []) (0 :: Int)) [] tys
+desugar (Def s var expr pats tys@(Forall _ _ ty) unts) =
+  Def s var (evalState (desguarPats expr pats ty []) (0 :: Int)) [] tys unts
   where
     unfoldBoxes [] e = e
     unfoldBoxes ((v, v', t, sp) : binds) e =
@@ -55,5 +55,5 @@ desugar (Def s var expr pats tys@(Forall _ _ ty)) =
       error $ "Type error at line " ++ show sl ++ ", column " ++ show sc
            ++ ": Definition of " ++ var ++ " expects at least "
            ++ show (length pats) ++ " arguments, but signature "
-           ++ " specifies: " ++ show (arity ty)
+           ++ "specifies: " ++ show (arity ty)
       where ((sl, sc), _) = getSpan e

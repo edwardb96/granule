@@ -69,8 +69,7 @@ evalIn env (LetDiamond _ var _ e1 e2) = do
 evalIn env (Val _ (Var x)) =
     case lookup x env of
       Just val -> return val
-      Nothing  -> fail $ "Variable '" ++ x ++ "' is undefined in context: "
-               ++ show env
+      Nothing  -> fail $ "Variable '" ++ x ++ "' is undefined in context"
 
 evalIn _ (Val _ v) = return v
 

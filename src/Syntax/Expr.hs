@@ -204,8 +204,15 @@ instance Term Expr where
 
 --------- Definitions
 
-data Def = Def Span Id Expr [Pattern] TypeScheme
-          deriving (Eq, Show, Generic)
+data Def =
+    Def
+    Span         -- Source span of the definition
+    Id           -- Name of the definition
+    Expr         -- Expression
+    [Pattern]    -- Pattern matches
+    TypeScheme   -- The type signature of the definition
+    [TypeScheme] -- Any negative type signatures
+  deriving (Eq, Show, Generic)
 
 instance FirstParameter Def Span
 
@@ -215,10 +222,10 @@ uniqueNames = (\(defs, (_, nmap)) -> (defs, nmap))
             . flip runState (0 :: Int, [])
             . mapM freshenDef
   where
-    freshenDef (Def s var e ps t) = do
+    freshenDef (Def s var e ps t unts) = do
       e'  <- freshen e
       ps' <- mapM freshenBinder ps
-      return $ Def s var e' ps' t
+      return $ Def s var e' ps' t unts
 
 ----------- Types
 

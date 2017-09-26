@@ -56,8 +56,13 @@ instance Pretty Type where
 
 instance Pretty [Def] where
     pretty = intercalate "\n"
-     . map (\(Def _ v e ps t) -> v ++ " : " ++ pretty t ++ "\n"
-                                ++ v ++ pretty ps ++ " = " ++ pretty e)
+     . map (\(Def _ v e ps t unts) ->
+           -- print unsignatures
+           unlines (map (\t -> v ++ " / " ++ pretty t) unts)
+           -- print signature
+         ++ v ++ " : " ++ pretty t ++ "\n"
+           -- print definition
+         ++ v ++ pretty ps ++ " = " ++ pretty e)
 
 instance Pretty Pattern where
     pretty (PVar _ v)    = v
