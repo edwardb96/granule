@@ -1,6 +1,9 @@
 pair : (Int, Int)
 pair = (3, 4)
 
+foo : Int
+foo = let (x, y) = (1, 2) in x + y
+
 fst : (Int, Int |0|) -> Int
 fst (a, |_|) = a
 
