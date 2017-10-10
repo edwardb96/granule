@@ -19,6 +19,8 @@ import Control.Monad.Reader.Class
 import Control.Monad.Trans.Maybe
 import Data.SBV hiding (kindOf)
 
+import Debug.Trace
+
 -- Checking (top-level)
 check :: [Def]        -- List of definitions
       -> Bool         -- Debugging flag
@@ -35,7 +37,7 @@ check defs dbg nameMap = do
     results <- evalChecker initState nameMap checkedDefs
 
     -- If all definitions type checked, then the whole file type checkers
-    if all (\(_, _, _, checked) -> isJust checked) $ results
+    if all (\(_, _, _, checked) -> isJust checked) results
       then return . Right $ True
       else return . Left  $ ""
   where
@@ -110,9 +112,7 @@ checkExpr dbg defs gam pol (FunTy sig tau) (Val s (Abs x t e)) = do
     Nothing -> return ()
     Just t' -> do
       eqT <- equalTypes dbg s sig t'
-      if eqT
-        then return ()
-        else illTyped s $ "Type mismatch: " ++ pretty sig ++ " not equal to " ++ pretty t'
+      unless eqT $ illTyped s $ "Type mismatch: " ++ pretty sig ++ " not equal to " ++ pretty t'
 
   -- Extend the context with the variable 'x' and its type
   gamE <- extCtxt s gam x (Left sig)
@@ -125,7 +125,7 @@ checkExpr dbg defs gam pol (FunTy sig tau) (Val s (Abs x t e)) = do
       illLinearity s $ unusedVariable (unrename nameMap x)
     Just _  -> return (eraseVar gam' x)
 
-checkExpr _ _ _ _ tau (Val s (Abs {})) =
+checkExpr _ _ _ _ tau (Val s Abs{}) =
     illTyped s $ "Expected a function type, but got " ++ pretty tau
 
 {-
@@ -425,7 +425,9 @@ synthExpr dbg defs gam (Val s (Abs x (Just t) e)) = do
   gam' <- extCtxt s gam x (Left t)
   synthExpr dbg defs gam' e
 
-synthExpr _ _ _ e = illTyped (getSpan e) $ "I can't work out the type here, try adding more type signatures"
+synthExpr _ _ _ e =
+  illTyped (getSpan e)
+    "I can't work out the type here, try adding more type signatures"
 
 
 solveConstraints :: Bool -> Span -> String -> MaybeT Checker Bool
