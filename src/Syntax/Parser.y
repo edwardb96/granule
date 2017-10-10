@@ -64,51 +64,51 @@ NL : nl NL {}
    | nl    {}
 
 Def :: { Def }
-Def : Signatures nl Binding
- { let (name, (l, u), signatures) = $1
-   in let actualSignature = filter fst signatures
-   in let unSignatures    = filter (not . fst) signatures
-   in
+Def : Signatures
+ {% do
+     let ((name, (l, u)), signatures, def) = $1
+     let actualSignature = filter fst signatures
+     let unSignatures    = filter (not . fst) signatures
      case actualSignature of
-       [sig] | name == fst3 $1 ->
-           Def (l, getEnd $ snd3 $3)
+       [(True, sig)] ->
+           return $
+               Def (l, u)
                name
-               (snd3 $3)
-               (thd3 $3)
+               (fst def)
+               (snd def)
                sig
-               unSignatures
+               (map snd unSignatures)
 
-       [_] -> "(" ++ show l ++ ":" ++ show u ++ "): "
+       [_] -> fail $ "(" ++ show l ++ ":" ++ show u ++ "): "
             ++ "Missing signature for " ++ name
 
-       _ -> "(" ++ show l ++ ":" ++ show u ++ "): "
+       _ -> fail $ "(" ++ show l ++ ":" ++ show u ++ "): "
             ++ "Duplicate signatures for " ++ name }
 
-Signatures :: { ((String, Span), [(Bool, TypeScheme)]) }
+Signatures :: { ( (String, Span), [(Bool, TypeScheme)], (Expr, [Pattern]) ) }
 Signatures :
-   VAR Signature Signatures
-     { let ((var, (_, u)), sigs) = $3
-       in let (_, sig)              = $2
-       in let var'                  = $1
-       in 
+   VAR Signature nl Signatures
+     {% do
+          let ((var, (l, u)), sigs, def) = $4
+          let (_, sig)                   = $2
+          let var'                       = symString $1
           if var == var'
-  	  then (var, ($1, u), (sig : sigs))
-          else error $ "(" ++ show l ++ ":" ++ show u ++ "): "
-	          ++ "Signature for " ++ var
-       	          ++ " has conflicting name " ++ $1  }
+  	       then return ((var, (l, u)), (sig : sigs), def)
+           else fail $ "(" ++ show l ++ ":" ++ show u ++ "): "
+	                ++ "Signature for " ++ var
+       	          ++ " has conflicting name " ++ var'  }
 
-  | VAR Signature
-      { let (pos, sig) = $2
- 	in  (($1, pos), [sig]) } 
+  | VAR Binding
+      { ((symString $1, (getPos $1, getEnd (fst $2))), [], $2) }
 
 Signature :: { (Span, (Bool, TypeScheme)) }
 Signature :
-   ':' TypeScheme  { ((getPos $1, getEnd $2), (True, $2)) }
- | '/' TypeScheme  { ((getPos $1, getEnd $2), (False, $2)) }
+   ':' TypeScheme { ((getPos $1, getEnd $2), (True, $2)) }
+ | '/' TypeScheme { ((getPos $1, getEnd $2), (False, $2)) }
 
-Binding :: { (String, Expr, [Pattern]) }
-Binding : VAR '=' Expr             { (symString $1, $3, []) }
-        | VAR Pats '=' Expr        { (symString $1, $4, $2) }
+Binding :: { (Expr, [Pattern]) }
+Binding : '=' Expr             { ($2, []) }
+        | Pats '=' Expr        { ($3, $1) }
 
 Pats :: { [Pattern] }
 Pats : Pat                         { [$1] }

@@ -38,7 +38,7 @@ tokens :-
   case                          { \p s -> TokenCase p }
   of                            { \p s -> TokenOf p }
   @float                        { \p s -> TokenFloat p s }
-  @int                          { \p s -> TokenInt p $ read s }  
+  @int                          { \p s -> TokenInt p $ read s }
   "->"                          { \p s -> TokenArrow p }
   \;                            { \p s -> TokenSemicolon p }
   \=                            { \p s -> TokenEq p }
@@ -125,5 +125,3 @@ getPosToSpan :: Token -> ((Int, Int), (Int, Int))
 getPosToSpan t = (getPos t, getPos t)
 
 }
-
-

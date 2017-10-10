@@ -88,7 +88,7 @@ evalIn env (Case _ gExpr cases) = do
 
 evalDefs :: Env Value -> [Def] -> IO (Env Value)
 evalDefs env [] = return env
-evalDefs env (Def _ var e [] _ : defs) = do
+evalDefs env (Def _ var e [] _ _ : defs) = do
     val <- evalIn env e
     evalDefs (extend env var val) defs
 evalDefs _ (d : _) =

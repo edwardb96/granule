@@ -27,7 +27,7 @@ check :: [Def]        -- List of definitions
 check defs dbg nameMap = do
     -- Get the types of all definitions (assume that they are correct for
     -- the purposes of (mutually)recursive calls).
-    let defEnv = map (\(Def _ var _ _ tys) -> (var, tys)) defs
+    let defEnv = map (\(Def _ var _ _ tys _) -> (var, tys)) defs
 
     -- Build a computation which checks all the defs (in order)...
     let checkedDefs = mapM (checkDef defEnv) defs
@@ -39,14 +39,21 @@ check defs dbg nameMap = do
       then return . Right $ True
       else return . Left  $ ""
   where
-    checkDef defEnv (Def s var expr _ tys) = do
+    checkDef defEnv (Def s var expr _ tys untyss) = do
       env' <- runMaybeT $ do
-               env' <- checkExprTS dbg defEnv [] tys expr
-               solved <- solveConstraints s var
-               if solved
-                 then return ()
-                 else illTyped s "Constraints violated"
-               return env'
+          env' <- checkExprTS dbg defEnv [] tys expr
+          solved <- solveConstraints True s var
+          -- Unsolvable constraints will cause a type error
+          unless solved $ illTyped s "Constraints violated"
+          return env'
+
+      -- Check negative signatures
+      forM_ untyss $ \untys -> runMaybeT $ do
+          env' <- checkExprTS dbg defEnv [] untys expr
+          solved <- solveConstraints False s var
+          -- Unsolvable negative constraints
+          unless solved $ illTyped s "Negative type signature violated"
+
       -- Erase the solver predicate between definitions
       checkerState <- get
       put (checkerState { predicate = [], ckenv = [], cVarEnv = [] })
@@ -421,8 +428,8 @@ synthExpr dbg defs gam (Val s (Abs x (Just t) e)) = do
 synthExpr _ _ _ e = illTyped (getSpan e) $ "I can't work out the type here, try adding more type signatures"
 
 
-solveConstraints :: Span -> String -> MaybeT Checker Bool
-solveConstraints s defName = do
+solveConstraints :: Bool -> Span -> String -> MaybeT Checker Bool
+solveConstraints positive s defName = do
   -- Get the coeffect kind environment and constraints
   checkerState <- get
   let env  = ckenv checkerState
@@ -430,30 +437,31 @@ solveConstraints s defName = do
   let pred = predicate checkerState
   --
   let (sbvTheorem, unsats) = compileToSBV pred env cenv
-  thmRes <- liftIO . prove $ sbvTheorem
+  -- Negate the theorem if not "positive"
+  let sbvTheorem' = if positive then sbvTheorem else bnot <$> sbvTheorem
+  thmRes <- (concatMap pretty pred) `trace` (liftIO . prove $ sbvTheorem')
   case thmRes of
      -- Tell the user if there was a hard proof error (e.g., if
      -- z3 is not installed/accessible).
      -- TODO: give more information
      ThmResult (ProofError _ msgs) ->
         illTyped nullSpan $ "Prover error:" ++ unlines msgs
-     _ -> if modelExists thmRes
-           then
-             case getModelAssignment thmRes of
-               -- Main 'Falsifiable' result
-               Right (False, _ :: [ Integer ] ) -> do
-                   -- Show any trivial inequalities
-                   mapM_ (\c -> illGraded (getSpan c) (pretty . Neg $ c)) unsats
-                   -- Show fatal error, with prover result
-                   illTyped s $ "Definition '" ++ defName ++ "' is shown to be " ++ show thmRes
+     _ | modelExists thmRes ->
+           case getModelAssignment thmRes of
+             -- Main 'Falsifiable' result
+            Right (False, _ :: [ Integer ] ) -> do
+              -- Show any trivial inequalities
+              mapM_ (\c -> illGraded (getSpan c) (pretty . Neg $ c)) unsats
+              -- Show fatal error, with prover result
+              illTyped s $ "Definition '" ++ defName ++ "' is shown to be " ++ show thmRes
 
-               Right (True, _) ->
-                   illTyped s $ "Definition '" ++ defName ++ "' returned probable model."
+            Right (True, _) ->
+              illTyped s $ "Definition '" ++ defName ++ "' returned probable model."
 
-               Left str        ->
-                   illTyped s $ "Definition '" ++ defName ++ " had a solver fail: " ++ str
+            Left str        ->
+              illTyped s $ "Definition '" ++ defName ++ " had a solver fail: " ++ str
 
-           else return True
+     _ -> return True
 
 
 
@@ -568,7 +576,7 @@ freshPolymorphicInstance (Forall s ckinds ty) = do
       return (cvar, cvar')
 
 relevantSubEnv :: [Id] -> [(Id, t)] -> [(Id, t)]
-relevantSubEnv vars env = filter relevant env
+relevantSubEnv vars = filter relevant
  where relevant (var, _) = var `elem` vars
 
 -- Replace all top-level discharged coeffects with a variable
