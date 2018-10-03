@@ -46,6 +46,7 @@ library:
   - Syntax.Pretty
   - Syntax.Span
   - Utils
+  - Codegen.Codegen
   dependencies:
   - array
   - containers
@@ -55,6 +56,8 @@ library:
   - transformers >=0.5
   - text
   - Glob
+  - llvm-hs >= 6.0
+  - llvm-hs-pure >= 6.0
 
 
 executables:
@@ -67,6 +70,22 @@ executables:
     - Glob
     - granule
     - optparse-applicative
+  grc:
+    main: Main.hs
+    source-dirs: llvm-driver
+    ghc-options: -O3 -W -Werror -Wno-unused-matches
+    dependencies:
+    - granule
+    - llvm-hs >= 6.0
+    - llvm-hs-pure >= 6.0
+    - llvm-hs-pretty >= 0.5
+    - Glob
+    - filemanip
+    - filepath
+    - directory
+    - haskeline
+    - optparse-applicative
+    - text
   grin:
     main: Main.hs
     source-dirs: repl
