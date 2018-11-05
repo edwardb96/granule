@@ -1,3 +1,6 @@
+# This script expects the build context to contain a folder granule-ci
+# this should be an up-to-date version of the granule repository with a
+# working package configuration.
 FROM fedora:latest
 # Install barebones packages.
 RUN dnf -y install \
@@ -11,7 +14,7 @@ RUN dnf -y install \
     wget \
     git
 
-COPY granule "/root/host-repo"
+COPY granule-ci "/root/host-repo"
 RUN mkdir "/root/stack-root"
 # Directory for (ci) git project, not available during docker build.
 RUN mkdir "/root/repo"
@@ -30,10 +33,7 @@ WORKDIR "/root/host-repo"
 # Delete any build directories copied from host.
 RUN find . -path '*/.stack-work/*' -delete
 # Install dependencies to stack root
-RUN stack install --dependencies-only granule-frontend
-RUN stack install --dependencies-only granule-compiler
-RUN stack install --dependencies-only granule-interpreter
-RUN stack install --dependencies-only granule-repl
+RUN stack build --dependencies-only
 # Delete the host-repo directory.
 RUN rm -rf "/root/host-repo"
 
