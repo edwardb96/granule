@@ -8,6 +8,7 @@ RUN dnf -y install \
     llvm-devel \
     gcc-c++ \
     clang \
+    z3 \
     libstdc++ \
     libstdc++-devel \
     findutils \
@@ -22,7 +23,9 @@ RUN mkdir "/root/repo"
 
 # Set stack root directory
 ENV STACK_ROOT="/root/stack-root"
+# Add stack bin to path
 ENV PATH="/root/.local/bin:${PATH}"
+# Set C Locale
 ENV LANG="en_GB.UTF-8"
 
 # Install stack
@@ -32,8 +35,8 @@ RUN wget -qO- https://get.haskellstack.org/ | sh
 WORKDIR "/root/host-repo"
 # Delete any build directories copied from host.
 RUN find . -path '*/.stack-work/*' -delete
-# Install dependencies to stack root
-RUN stack build --dependencies-only
+# Install dependencies to stack root (including test dependencies)
+RUN stack test --dependencies-only
 # Delete the host-repo directory.
 RUN rm -rf "/root/host-repo"
 
